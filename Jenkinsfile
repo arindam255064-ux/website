@@ -4,13 +4,15 @@ pipeline {
     environment {
         // Default to 'develop' if branch not set
         GIT_BRANCH = "${env.BRANCH_NAME ?: 'develop'}"
+        DOCKER_IMAGE = "mywebapp:hshar"
+        DOCKER_REGISTRY = "arindamnayak716" // Replace with your Docker Hub username
     }
 
     stages {
         stage('Checkout') {
             steps {
                 checkout([$class: 'GitSCM',
-                    branches: [[name: '*/develop']],
+                    branches: [[name: "*/${GIT_BRANCH}"]],
                     doGenerateSubmoduleConfigurations: false,
                     extensions: [],
                     userRemoteConfigs: [[
@@ -28,9 +30,33 @@ pipeline {
             }
         }
 
+        stage('Build Docker Image') {
+            steps {
+                echo "Building Docker image ${DOCKER_IMAGE}..."
+                sh "docker build -t ${DOCKER_IMAGE} ."
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    if (env.GIT_BRANCH == 'master') {
+                        echo "Pushing Docker image to Docker Hub..."
+                        withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+                            sh 'docker login -u $USER -p $PASS'
+                            sh "docker tag ${DOCKER_IMAGE} ${DOCKER_REGISTRY}/${DOCKER_IMAGE}"
+                            sh "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}"
+                        }
+                    } else {
+                        echo "Skipping Docker push for branch ${GIT_BRANCH}"
+                    }
+                }
+            }
+        }
+
         stage('Deploy to Production') {
             when {
-                expression { env.BRANCH_NAME == 'master' }
+                expression { env.GIT_BRANCH == 'master' }
             }
             steps {
                 echo "Deploying to production environment..."
