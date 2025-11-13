@@ -8,7 +8,7 @@ RUN apt-get update && \
 # Copy website files into container
 COPY ./ /var/www/html/
 
-# Expose web port
+# Expose port 80
 EXPOSE 80
 
 # Start Apache in the foreground
