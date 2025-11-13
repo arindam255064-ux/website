@@ -2,13 +2,22 @@ pipeline {
     agent any
 
     environment {
-        GIT_BRANCH = "${env.GIT_BRANCH ?: 'develop'}"
+        // Default to 'develop' if branch not set
+        GIT_BRANCH = "${env.BRANCH_NAME ?: 'develop'}"
     }
 
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'develop', credentialsId: 'github-creds', url: 'https://github.com/arindam255064-ux/website.git'
+                checkout([$class: 'GitSCM',
+                    branches: [[name: '*/develop']],
+                    doGenerateSubmoduleConfigurations: false,
+                    extensions: [],
+                    userRemoteConfigs: [[
+                        url: 'https://github.com/arindam255064-ux/website.git',
+                        credentialsId: 'github-creds'
+                    ]]
+                ])
             }
         }
 
@@ -21,7 +30,7 @@ pipeline {
 
         stage('Deploy to Production') {
             when {
-                expression { env.GIT_BRANCH == 'master' }
+                expression { env.BRANCH_NAME == 'master' }
             }
             steps {
                 echo "Deploying to production environment..."
@@ -29,5 +38,13 @@ pipeline {
             }
         }
     }
-}
 
+    post {
+        success {
+            echo "✅ Pipeline executed successfully!"
+        }
+        failure {
+            echo "❌ Pipeline failed. Check logs for details."
+        }
+    }
+}
