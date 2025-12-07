@@ -3,8 +3,8 @@ pipeline {
 
     environment {
         GIT_BRANCH = "${env.BRANCH_NAME ?: 'develop'}"
-        DOCKER_IMAGE = "mywebapp:hshar"               // Image name with tag
-        DOCKERHUB_CREDENTIALS = "dockerhub-credentials" // Jenkins credentials ID
+        DOCKER_IMAGE = "mywebapp:hshar"
+        DOCKER_REGISTRY = "arindamnayak716" // Docker Hub username
     }
 
     stages {
@@ -31,24 +31,19 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                script {
-                    echo "Building Docker image..."
-                    sh "docker build -t ${DOCKER_IMAGE} ."
-                }
+                echo "Building Docker image..."
+                sh "docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE} ."
             }
         }
 
         stage('Push Docker Image') {
             steps {
-                script {
-                    echo "Pushing Docker image to Docker Hub..."
-                    withCredentials([usernamePassword(credentialsId: "${DOCKERHUB_CREDENTIALS}", usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                        sh """
-                        echo \$DOCKER_PASSWORD | docker login -u \$DOCKER_USERNAME --password-stdin
-                        docker tag ${DOCKER_IMAGE} \$DOCKER_USERNAME/${DOCKER_IMAGE}
-                        docker push \$DOCKER_USERNAME/${DOCKER_IMAGE}
-                        """
-                    }
+                echo "Pushing Docker image to Docker Hub..."
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_PASSWORD')]) {
+                    sh '''
+                        echo $DOCKERHUB_PASSWORD | docker login -u $DOCKERHUB_USERNAME --password-stdin
+                        docker push $DOCKERHUB_USERNAME/${DOCKER_IMAGE}
+                    '''
                 }
             }
         }
@@ -58,8 +53,8 @@ pipeline {
                 expression { env.GIT_BRANCH == 'master' }
             }
             steps {
-                echo "Deploying to production environment..."
-                sh 'ansible-playbook /etc/ansible/deploy.yml'
+                echo "Deploying to production..."
+                sh 'ansible-playbook /etc/ansible/deploy.yaml'
             }
         }
     }
@@ -69,7 +64,7 @@ pipeline {
             echo "✅ Pipeline executed successfully!"
         }
         failure {
-            echo "❌ Pipeline failed. Check logs for details."
+            echo "❌ Pipeline failed. Check logs."
         }
     }
 }
