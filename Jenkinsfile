@@ -2,75 +2,72 @@ pipeline {
     agent any
 
     environment {
-        // Default to 'develop' if branch not set
-        GIT_BRANCH = "${env.BRANCH_NAME ?: 'develop'}"
-        DOCKER_IMAGE = "mywebapp:hshar"
-        DOCKER_REGISTRY = "arindamnayak716" // Replace with your Docker Hub username
+        DOCKER_IMAGE = "docker6767/image"        // Replace with your Docker Hub repo
+        DOCKER_REGISTRY = "docker.io"
+        KUBE_DEPLOYMENT = "custom-deployment"
+        KUBE_NAMESPACE = "default"
+        KUBE_CONFIG = "/home/jenkins/.kube/config" // Jenkins kubeconfig path
+    }
+
+    triggers {
+        pollSCM('H/5 * * * *') // Optional: poll every 5 mins for changes in master
     }
 
     stages {
+
         stage('Checkout') {
             steps {
-                checkout([$class: 'GitSCM',
-                    branches: [[name: "*/${GIT_BRANCH}"]],
-                    doGenerateSubmoduleConfigurations: false,
-                    extensions: [],
-                    userRemoteConfigs: [[
-                        url: 'https://github.com/arindam255064-ux/website.git',
-                        credentialsId: 'github-creds'
-                    ]]
-                ])
+                git branch: 'master', url: 'https://github.com/arindam255064-ux/website.git'
             }
         }
 
-        stage('Build/Test') {
-            steps {
-                echo "Running build and tests for branch ${GIT_BRANCH}"
-                sh 'echo "Simulating build and test..."'
-            }
-        }
-
-        stage('Build Docker Image') {
-            steps {
-                echo "Building Docker image ${DOCKER_IMAGE}..."
-                sh "docker build -t ${DOCKER_IMAGE} ."
-            }
-        }
-
-        stage('Push Docker Image') {
+        stage('Check Release Date') {
             steps {
                 script {
-                    if (env.GIT_BRANCH == 'master') {
-                        echo "Pushing Docker image to Docker Hub..."
-                        withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
-                            sh "echo $PASS | docker login -u $USER --password-stdin"
-                            sh "docker tag ${DOCKER_IMAGE} ${DOCKER_REGISTRY}/${DOCKER_IMAGE}"
-                            sh "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}"
-                        }
-                    } else {
-                        echo "Skipping Docker push for branch ${GIT_BRANCH}"
+                    def today = new Date().format('dd', TimeZone.getTimeZone('UTC'))
+                    if (today != '25') {
+                        echo "Today is not 25th. Skipping deployment."
+                        currentBuild.result = 'SUCCESS'
+                        return
                     }
                 }
             }
         }
 
-        stage('Deploy to Production') {
-            when {
-                expression { env.GIT_BRANCH == 'master' }
-            }
+        stage('Build Docker Image') {
             steps {
-                echo "Deploying to production environment..."
-                sh 'ansible-playbook /etc/ansible/deploy.yml'
+                script {
+                    sh '''
+                    echo "Building Docker image..."
+                    docker build -t $DOCKER_IMAGE:latest .
+                    echo "Logging in to Docker Hub..."
+                    echo $DOCKERHUB_PASSWORD | docker login -u $DOCKERHUB_USERNAME --password-stdin
+                    docker push $DOCKER_IMAGE:latest
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                script {
+                    sh '''
+                    echo "Applying Kubernetes manifests..."
+                    kubectl apply -f deploy.yaml
+                    kubectl apply -f svc.yaml
+                    kubectl rollout status deployment/$KUBE_DEPLOYMENT
+                    '''
+                }
             }
         }
     }
 
     post {
         success {
-            echo "✅ Pipeline executed successfully!"
+            echo "✅ Deployment completed successfully!"
         }
         failure {
-            echo "❌ Pipeline failed. Check logs for details."
+            echo "❌ Deployment failed!"
         }
     }
 }
