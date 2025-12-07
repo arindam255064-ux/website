@@ -31,25 +31,30 @@ pipeline {
         }
 
         stage('Build Docker Image') {
-            steps {
-                echo "Building Docker image ${DOCKER_IMAGE}..."
-                sh "docker build -t ${DOCKER_IMAGE} ."
-            }
+    steps {
+        script {
+            sh '''
+            echo "Building Docker image..."
+            docker build -t $DOCKERHUB_USERNAME/mywebapp:hshar .
+            '''
         }
+    }
+}
 
-        stage('Push Docker Image') {
+stage('Push Docker Image') {
     steps {
         script {
             echo "Pushing Docker image to Docker Hub..."
             withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_PASSWORD')]) {
                 sh '''
                 echo $DOCKERHUB_PASSWORD | docker login -u $DOCKERHUB_USERNAME --password-stdin
-                docker push mywebapp:hshar
+                docker push $DOCKERHUB_USERNAME/mywebapp:hshar
                 '''
             }
         }
     }
 }
+
 
 
         stage('Deploy to Production') {
