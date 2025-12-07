@@ -1,13 +1,15 @@
-FROM ubuntu
+FROM ubuntu:22.04
 
-# Update and install Apache
-RUN apt update && apt-get install -y apache2
+# Install Apache
+RUN apt-get update && \
+    apt-get install -y apache2 && \
+    apt-get clean
 
-# Set the working directory (optional but recommended)
-WORKDIR /var/www/html
+# Copy website files into container
+COPY ./ /var/www/html/
 
-# Copy your website files into the container
-ADD ./var/www/html /var/www/html
+# Expose port 80
+EXPOSE 80
 
-# Keep Apache running in the foreground
+# Start Apache in the foreground
 ENTRYPOINT ["apachectl", "-D", "FOREGROUND"]
