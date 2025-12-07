@@ -38,21 +38,19 @@ pipeline {
         }
 
         stage('Push Docker Image') {
-            steps {
-                script {
-                    if (env.GIT_BRANCH == 'master') {
-                        echo "Pushing Docker image to Docker Hub..."
-                        withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
-                            sh "echo $PASS | docker login -u $USER --password-stdin"
-                            sh "docker tag ${DOCKER_IMAGE} ${DOCKER_REGISTRY}/${DOCKER_IMAGE}"
-                            sh "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}"
-                        }
-                    } else {
-                        echo "Skipping Docker push for branch ${GIT_BRANCH}"
-                    }
-                }
+    steps {
+        script {
+            echo "Pushing Docker image to Docker Hub..."
+            withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_PASSWORD')]) {
+                sh '''
+                echo $DOCKERHUB_PASSWORD | docker login -u $DOCKERHUB_USERNAME --password-stdin
+                docker push mywebapp:hshar
+                '''
             }
         }
+    }
+}
+
 
         stage('Deploy to Production') {
             when {
