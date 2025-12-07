@@ -2,10 +2,9 @@ pipeline {
     agent any
 
     environment {
-        // Default to 'develop' if branch not set
         GIT_BRANCH = "${env.BRANCH_NAME ?: 'develop'}"
-        DOCKER_IMAGE = "mywebapp:hshar"
-        DOCKER_REGISTRY = "arindamnayak716" // Replace with your Docker Hub username
+        DOCKER_IMAGE = "mywebapp:hshar"               // Image name with tag
+        DOCKERHUB_CREDENTIALS = "dockerhub-credentials" // Jenkins credentials ID
     }
 
     stages {
@@ -31,32 +30,28 @@ pipeline {
         }
 
         stage('Build Docker Image') {
-    steps {
-        script {
-            sh '''
-            echo "Building Docker image..."
-            docker build -t $DOCKERHUB_USERNAME/mywebapp:hshar .
-            '''
-        }
-    }
-}
-
-stage('Push Docker Image') {
-    steps {
-        script {
-            echo "Pushing Docker image to Docker Hub..."
-            withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_PASSWORD')]) {
-                sh '''
-                echo $DOCKERHUB_PASSWORD | docker login -u $DOCKERHUB_USERNAME --password-stdin
-                docker push $DOCKERHUB_USERNAME/mywebapp:hshar
-                '''
+            steps {
+                script {
+                    echo "Building Docker image..."
+                    sh "docker build -t ${DOCKER_IMAGE} ."
+                }
             }
         }
-    }
-}
 
-
-
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    echo "Pushing Docker image to Docker Hub..."
+                    withCredentials([usernamePassword(credentialsId: "${DOCKERHUB_CREDENTIALS}", usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                        sh """
+                        echo \$DOCKER_PASSWORD | docker login -u \$DOCKER_USERNAME --password-stdin
+                        docker tag ${DOCKER_IMAGE} \$DOCKER_USERNAME/${DOCKER_IMAGE}
+                        docker push \$DOCKER_USERNAME/${DOCKER_IMAGE}
+                        """
+                    }
+                }
+            }
+        }
 
         stage('Deploy to Production') {
             when {
