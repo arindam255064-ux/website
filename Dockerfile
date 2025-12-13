@@ -1,15 +1,14 @@
-FROM ubuntu:22.04
+# Use Nginx as base image
+FROM nginx:alpine
 
-# Install Apache
-RUN apt-get update && \
-    apt-get install -y apache2 && \
-    apt-get clean
+# Remove default Nginx content
+RUN rm -rf /usr/share/nginx/html/*
 
-# Copy website files into container
-COPY ./ /var/www/html/
+# Copy your website content
+COPY . /usr/share/nginx/html
 
 # Expose port 80
 EXPOSE 80
 
-# Start Apache in the foreground
-ENTRYPOINT ["apachectl", "-D", "FOREGROUND"]
+# Start Nginx
+CMD ["nginx", "-g", "daemon off;"]
